@@ -2,7 +2,7 @@
 
 CC        := gcc
 CFLAGS    := -Wall -g -I../common
-LDFLAGS   := -L../common -lmysyslog
+LDFLAGS   := -L../common/lib -Wl,-rpath=../common/lib -lmysyslog
 SRC_DIR   := .
 OBJ_DIR   := obj
 BIN_DIR   := bin
