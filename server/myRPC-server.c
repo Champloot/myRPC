@@ -17,6 +17,8 @@
 #define MAX_USERS 100
 #define TEMP_FILE_PATTERN "/tmp/myRPC_%06d"
 
+// конфигурация.
+// тут идет чтение конфигурации. в частности порт и тип сокета.
 int read_config(const char *config_path, int *port, int *socket_type) {
     FILE *config_file = fopen(config_path, "r");
     if (!config_file) {
@@ -24,8 +26,8 @@ int read_config(const char *config_path, int *port, int *socket_type) {
     }
     
     char line[256];
-    *port = 1234; // default port
-    *socket_type = SOCK_STREAM; // default to stream socket
+    *port = 1234; // default
+    *socket_type = SOCK_STREAM; // default
     
     while (fgets(line, sizeof(line), config_file)) {
         if (strstr(line, "port = ")) {
@@ -41,6 +43,7 @@ int read_config(const char *config_path, int *port, int *socket_type) {
     return 0;
 }
 
+// проверка пользователя в конфиге
 int is_user_allowed(const char *username, const char *users_conf_path) {
     FILE *users_file = fopen(users_conf_path, "r");
     if (!users_file) {
@@ -49,7 +52,6 @@ int is_user_allowed(const char *username, const char *users_conf_path) {
     
     char line[256];
     while (fgets(line, sizeof(line), users_file)) {
-        // Remove newline character
         line[strcspn(line, "\n")] = '\0';
         
         if (strcmp(line, username) == 0) {
@@ -62,20 +64,23 @@ int is_user_allowed(const char *username, const char *users_conf_path) {
     return 0;
 }
 
+// функция выполнения команд:
+// создание временных файлов
+// дальше чтение этих самых временных файлов
+// потом конечно удаление этих фалов
+// и обработка ошибок, если они были
 void execute_command(const char *command, char *output, int output_size) {
-    // Create temporary file names
+    
     char stdout_file[64], stderr_file[64];
     pid_t pid = getpid();
     snprintf(stdout_file, sizeof(stdout_file), TEMP_FILE_PATTERN ".stdout", pid);
     snprintf(stderr_file, sizeof(stderr_file), TEMP_FILE_PATTERN ".stderr", pid);
     
-    // Execute command and redirect output
     char full_command[BUFFER_SIZE * 2];
     snprintf(full_command, sizeof(full_command), "%s > %s 2> %s", command, stdout_file, stderr_file);
     
     int status = system(full_command);
     
-    // Read stdout
     FILE *out_file = fopen(stdout_file, "r");
     if (out_file) {
         fread(output, 1, output_size - 1, out_file);
@@ -83,7 +88,6 @@ void execute_command(const char *command, char *output, int output_size) {
         unlink(stdout_file);
     }
     
-    // Append stderr if there was an error
     if (status != 0) {
         strcat(output, "\nErrors:\n");
         FILE *err_file = fopen(stderr_file, "r");
@@ -100,7 +104,8 @@ int main(int argc, char *argv[]) {
     int port, socket_type;
     const char *config_path = "/etc/myRPC/myRPC.conf";
     const char *users_conf_path = "/etc/myRPC/users.conf";
-    
+
+    // инициализация: загрузка онфигурации, создание соркета, привязка к порту ...
     if (read_config(config_path, &port, &socket_type) < 0) {
         mysyslog("Failed to read config file", CRITICAL, 0, 0, "/var/log/myRPC.log");
         fprintf(stderr, "Error: Could not read config file %s\n", config_path);
@@ -133,12 +138,15 @@ int main(int argc, char *argv[]) {
     
     printf("myRPC server started on port %d (%s)\n", 
            port, socket_type == SOCK_STREAM ? "TCP" : "UDP");
-    
+
+    // основной цикл обработки
     while (1) {
         struct sockaddr_in cli_addr;
         socklen_t clilen = sizeof(cli_addr);
         int newsockfd;
-        
+
+        // если tcp, то использую accept() для новго соединения
+        // если udp то исходный сокет
         if (socket_type == SOCK_STREAM) {
             newsockfd = accept(sockfd, (struct sockaddr *)&cli_addr, &clilen);
             if (newsockfd < 0) {
@@ -170,7 +178,7 @@ int main(int argc, char *argv[]) {
         }
         buffer[n] = '\0';
         
-        // Parse request: "username": "command"
+        // разбор запроса. ожидается что он будет в формате "username" : "command"
         char username[256], command[BUFFER_SIZE];
         if (sscanf(buffer, "\"%[^\"]\": \"%[^\"]\"", username, command) != 2) {
             mysyslog("Invalid request format", WARN, 0, 0, "/var/log/myRPC.log");
@@ -185,7 +193,7 @@ int main(int argc, char *argv[]) {
             continue;
         }
         
-        // Check if user is allowed
+        // проверка првав пользователя
         if (!is_user_allowed(username, users_conf_path)) {
             mysyslog("Unauthorized access attempt", WARN, 0, 0, "/var/log/myRPC.log");
             char response[BUFFER_SIZE];
@@ -200,11 +208,11 @@ int main(int argc, char *argv[]) {
             continue;
         }
         
-        // Execute command
+        // выполнение команд
         char output[BUFFER_SIZE] = {0};
         execute_command(command, output, sizeof(output));
         
-        // Prepare and send response
+        // формирование ответа: 0 - успех, 1 - ошибка (и её описание)
         char response[BUFFER_SIZE * 2];
         snprintf(response, sizeof(response), "0: \"%s\"", output);
         
@@ -216,7 +224,7 @@ int main(int argc, char *argv[]) {
                   (struct sockaddr *)&cli_addr, clilen);
         }
         
-        // Log the command execution
+        // логирование
         char log_msg[BUFFER_SIZE * 2];
         snprintf(log_msg, sizeof(log_msg), "User %s executed command: %s", username, command);
         mysyslog(log_msg, INFO, 0, 0, "/var/log/myRPC.log");
