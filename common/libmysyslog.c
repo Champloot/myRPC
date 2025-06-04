@@ -4,11 +4,11 @@
 #include <time.h>
 #include "libmysyslog.h"
 
-int mysyslog(const char* message, int severity, int source, int fmt, const char* log_path) 
+int mysyslog(const char* message, int severity, int source, int fmt, const char* log_path)
 {
     FILE* file_handle = fopen(log_path, "a+");
     if (file_handle == NULL) return -1;
-    
+
     time_t current_time;
     time(&current_time);
     char* time_str = ctime(&current_time);
