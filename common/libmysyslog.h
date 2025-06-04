@@ -5,5 +5,5 @@
 #define WARN 2
 #define ERROR 3
 #define CRITICAL 4
-int mysyslog(const char* msg, int level, int driver, int format, const char* path);
+int mysyslog(const char* message, int severity, int source, int fmt, const char* log_path);
 #endif // LIBMYSYSLOG_H
