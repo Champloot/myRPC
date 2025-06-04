@@ -26,10 +26,10 @@ int main(int argc, char *argv[]) {
     char *command = NULL;
     char *host = "127.0.0.1";
     int port = 1234;
-    int socket_type = SOCK_STREAM; // default to stream socket
+    int socket_type = SOCK_STREAM; // дефолт
     char *username = NULL;
     
-    // Parse command line arguments
+    // парсинг аргуементов
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-c") == 0 || strcmp(argv[i], "--command") == 0) {
             if (i + 1 < argc) {
@@ -71,21 +71,21 @@ int main(int argc, char *argv[]) {
         return 1;
     }
     
-    // Get current username
+    // получение имени пользователя
     username = getenv("USER");
     if (!username) {
         fprintf(stderr, "Error: Could not determine username\n");
         return 1;
     }
     
-    // Create socket
+    // создание сокета
     int sockfd = socket(AF_INET, socket_type, 0);
     if (sockfd < 0) {
         mysyslog("Failed to create socket", ERROR, 1, 0, "/var/log/myRPC.log");
         perror("socket");
         return 1;
     }
-    
+
     struct hostent *server = gethostbyname(host);
     if (server == NULL) {
         mysyslog("Failed to resolve host", ERROR, 1, 0, "/var/log/myRPC.log");
@@ -93,14 +93,15 @@ int main(int argc, char *argv[]) {
         close(sockfd);
         return 1;
     }
-    
+
+    // настройка адреса сервера. заполнение структуры адреса сервера~
     struct sockaddr_in serv_addr;
     memset(&serv_addr, 0, sizeof(serv_addr));
     serv_addr.sin_family = AF_INET;
     memcpy(&serv_addr.sin_addr.s_addr, server->h_addr, server->h_length);
     serv_addr.sin_port = htons(port);
     
-    // Connect to server
+    // соединение с сервером
     if (connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
         mysyslog("Failed to connect to server", ERROR, 1, 0, "/var/log/myRPC.log");
         perror("connect");
@@ -108,11 +109,11 @@ int main(int argc, char *argv[]) {
         return 1;
     }
     
-    // Prepare request
+    // создание запроста в формате: "username" : "command"
     char request[BUFFER_SIZE];
     snprintf(request, BUFFER_SIZE, "\"%s\": \"%s\"", username, command);
     
-    // Send request
+    // отправка этого запроса
     if (send(sockfd, request, strlen(request), 0) < 0) {
         mysyslog("Failed to send request", ERROR, 1, 0, "/var/log/myRPC.log");
         perror("send");
@@ -120,22 +121,22 @@ int main(int argc, char *argv[]) {
         return 1;
     }
     
-    // Receive response
+    // получение ответа от севервера
     char response[BUFFER_SIZE];
     int n = recv(sockfd, response, BUFFER_SIZE - 1, 0);
     if (n < 0) {
-        mysyslog("Failed to receive response", ERROR, 1, 0, "/var/log/myRPC.log");
+        mysyslog("Faled to receive response", ERROR, 1, 0, "/var/log/myRPC.log");
         perror("recv");
         close(sockfd);
         return 1;
     }
     response[n] = '\0';
     
-    // Parse and display response
+    // обработка ответа
     int code;
     char result[BUFFER_SIZE];
     if (sscanf(response, "%d: \"%[^\"]\"", &code, result) != 2) {
-        fprintf(stderr, "Invalid response format from server\n");
+        fprintf(stderr, "Inavlid response format from server\n");
         close(sockfd);
         return 1;
     }
