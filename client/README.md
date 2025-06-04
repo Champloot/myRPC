@@ -43,17 +43,12 @@ myRPC-client [options]
 
 1. Простой запрос (TCP):
 ```bash
-myRPC-client -h 192.168.1.100 -c "ls -l"
+myRPC-client -h 127.0.0.1 -p 1234 -s -c "ls -l"
 ```
 
 2. Запрос через UDP:
 ```bash
-myRPC-client -d -c "df -h" -p 1235
-```
-
-3. Проверка версии ядра:
-```bash
-myRPC-client -c "uname -r"
+myRPC-client -h 127.0.0.1 -p 1234 -d -c "ls -l"
 ```
 
 ## Выходные коды
